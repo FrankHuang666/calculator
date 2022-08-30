@@ -1,15 +1,60 @@
-# C/C++ with GCC
-# Build your C/C++ project with GCC using make.
-# Add steps that publish test results, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/c-cpp/gcc
+#
+# Continuous Integration (CI)
+# This pipeline builds and validate the app for all supported architectures, in a public
+# configuration. If the build was queued to validate a pull request, we build and test only x64.
+#
 
 trigger:
 - main
+- release/*
+- feature/*
+pr:
+- main
+- release/*
+- feature/*
 
-pool:
-  vmImage: ubuntu-latest
+name: 0.$(Date:yyMM).$(DayOfMonth)$(Rev:rr).0
 
-steps:
-- script: |
-    make
-  displayName: 'make'
+jobs:
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: x64
+    isOSSBuild: true
+
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: x86
+    isOSSBuild: true
+    condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: ARM
+    isOSSBuild: true
+    condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: ARM64
+    isOSSBuild: true
+    condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+
+- template: ./templates/run-ui-tests.yaml
+  parameters:
+    platform: x64
+    isOSSBuild: true
+    runsettingsFileName: CalculatorUITests.ci.runsettings
+
+- template: ./templates/run-unit-tests.yaml
+  parameters:
+    platform: x64
+    isOSSBuild: true
+
+- template: ./templates/run-unit-tests.yaml
+  parameters:
+    platform: x86
+    isOSSBuild: true
+
+- template: ./templates/package-msixbundle.yaml
+  parameters:
+    isOSSBuild: true
